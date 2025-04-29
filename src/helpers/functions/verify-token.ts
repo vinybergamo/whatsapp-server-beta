@@ -1,9 +1,9 @@
-import * as jose from "jose";
+import { jwtVerify } from "jose";
 import { config } from "../../utils/config";
 
 export async function verifyToken(token: string): Promise<any> {
   try {
-    const { payload } = await jose.jwtVerify(
+    const { payload } = await jwtVerify(
       token,
       new TextEncoder().encode(config.jwt.secret)
     );

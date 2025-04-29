@@ -1,8 +1,8 @@
-import * as jose from "jose";
+import { SignJWT } from "jose";
 import { config } from "../../utils/config";
 
 export async function generateToken(payload: any): Promise<string> {
-  return await new jose.SignJWT(payload)
+  return await new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(config.jwt.expiresIn)

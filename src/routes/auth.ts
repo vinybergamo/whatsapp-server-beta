@@ -62,7 +62,7 @@ export function authRoutes(app: FastifyInstance) {
         },
       });
 
-      const token = app.generateToken({
+      const token = await app.generateToken({
         id: newUser.id,
       });
 
@@ -112,7 +112,7 @@ export function authRoutes(app: FastifyInstance) {
         });
       }
 
-      const isValidPassword = await compareSync(password, user.password);
+      const isValidPassword = compareSync(password, user.password);
 
       if (!isValidPassword) {
         return reply.status(401).send({
