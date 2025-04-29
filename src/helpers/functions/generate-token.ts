@@ -1,10 +1,9 @@
-import { SignJWT } from "jose";
+import { sign } from "jsonwebtoken";
 import { config } from "../../utils/config";
 
-export async function generateToken(payload: any): Promise<string> {
-  return await new SignJWT(payload)
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime(config.jwt.expiresIn)
-    .sign(new TextEncoder().encode(config.jwt.secret));
+export function generateToken(payload: any): string {
+  return sign(payload, config.jwt.secret, {
+    expiresIn: config.jwt.expiresIn as any,
+    algorithm: "HS256",
+  });
 }

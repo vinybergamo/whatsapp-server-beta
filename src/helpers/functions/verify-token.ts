@@ -1,12 +1,11 @@
-import { jwtVerify } from "jose";
+import { verify } from "jsonwebtoken";
 import { config } from "../../utils/config";
 
-export async function verifyToken(token: string): Promise<any> {
+export function verifyToken(token: string): any {
   try {
-    const { payload } = await jwtVerify(
-      token,
-      new TextEncoder().encode(config.jwt.secret)
-    );
+    const payload = verify(token, config.jwt.secret, {
+      algorithms: ["HS256"],
+    });
     return payload;
   } catch (error) {
     throw new Error("Invalid token");
