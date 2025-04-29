@@ -46,7 +46,7 @@ export function instanceRoutes(app: FastifyInstance) {
     });
   });
 
-  app.get("/instances/fetch-instance", async (request, reply) => {
+  app.get("/instance/fetch-instance", async (request, reply) => {
     return reply.send(request.instance).code(200);
   });
 
