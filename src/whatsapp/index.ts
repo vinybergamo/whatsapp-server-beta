@@ -82,29 +82,31 @@ export async function startWhatsapp(id: string) {
     });
 
     if (state === SocketState.CONNECTED) {
-      const [wid] = await Promise.all([client.getWid()]);
-      const [phoneNumber] = wid.split("@");
-      const [chats, contacts, profileStatus] = await Promise.all([
-        client.listChats(),
-        client.getAllContacts(),
-        client.getStatus(wid),
-      ]);
+      setInterval(async () => {
+        const [wid] = await Promise.all([client.getWid()]);
+        const [phoneNumber] = wid.split("@");
+        const [chats, contacts, profileStatus] = await Promise.all([
+          client.listChats(),
+          client.getAllContacts(),
+          client.getStatus(wid),
+        ]);
 
-      const profile = await client.getProfilePicFromServer(wid);
-      const host = await client.getHostDevice();
+        const profile = await client.getProfilePicFromServer(wid);
+        const host = await client.getHostDevice();
 
-      await prisma.instance.update({
-        where: { id: instance.id },
-        data: {
-          platform: host.platform,
-          profileStatus: profileStatus.status,
-          connectedPhone: phoneNumber,
-          name: host.pushname,
-          chats: chats.length,
-          contacts: contacts.length,
-          picture: profile.eurl,
-        },
-      });
+        await prisma.instance.update({
+          where: { id: instance.id },
+          data: {
+            platform: host.platform,
+            profileStatus: profileStatus.status,
+            connectedPhone: phoneNumber,
+            name: host.pushname,
+            chats: chats.length,
+            contacts: contacts.length,
+            picture: profile.eurl,
+          },
+        });
+      }, 60000);
     }
   });
 
