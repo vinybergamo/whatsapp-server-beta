@@ -38,4 +38,16 @@ export function instancesRoutes(app: FastifyInstance) {
       return reply.send(instance).code(201);
     }
   );
+
+  app.get("/instances", async (request, reply) => {
+    const user = request.user;
+
+    const instances = await app.prisma.instance.findMany({
+      where: {
+        userId: user.id,
+      },
+    });
+
+    return reply.send(instances).code(200);
+  });
 }
