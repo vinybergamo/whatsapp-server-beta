@@ -1,9 +1,7 @@
-import { create, SocketState } from "@wppconnect-team/wppconnect";
+import { create, SocketState, StatusFind } from "@wppconnect-team/wppconnect";
 import { prisma } from "../database";
 import { instances } from "./instances";
 import { config } from "../utils/config";
-import fs from "fs/promises";
-import path from "path";
 
 export async function startWhatsapp(id: string) {
   const instance = await prisma.instance.findUnique({ where: { id } });
@@ -30,11 +28,39 @@ export async function startWhatsapp(id: string) {
     puppeteerOptions: {},
     browserWS: `wss://${config.whatsapp.browser}?token=${config.whatsapp.browserToken}&timeout=0`,
     autoClose: 60000,
+    statusFind: async (status) => {
+      if (status === StatusFind.inChat) {
+        await new Promise((resolve) => setTimeout(resolve, 10000));
+        const [wid] = await Promise.all([client.getWid()]);
+        const [phoneNumber] = wid.split("@");
+        const [chats, contacts, profileStatus] = await Promise.all([
+          client.listChats(),
+          client.getAllContacts(),
+          client.getStatus(wid),
+        ]);
+
+        const profile = await client.getProfilePicFromServer(wid);
+        const host = await client.getHostDevice();
+
+        await prisma.instance.update({
+          where: { id: instance.id },
+          data: {
+            platform: host.platform,
+            profileStatus: profileStatus.status,
+            connectedPhone: phoneNumber,
+            name: host.pushname,
+            chats: chats.length,
+            contacts: contacts.length,
+            picture: profile.eurl,
+          },
+        });
+      }
+    },
   });
 
   await new Promise<void>((resolve) => {
     client.onStateChange((state) => {
-      if (state === "CONNECTED" || state === "UNPAIRED") {
+      if (state === SocketState.CONNECTED || state === SocketState.UNPAIRED) {
         resolve();
       }
     });
@@ -43,6 +69,7 @@ export async function startWhatsapp(id: string) {
   instances.set(instance.id, client);
 
   client.onStateChange(async (state) => {
+    console.log("State changed", state);
     await prisma.instance.update({
       where: { id: instance.id },
       data: {
@@ -52,14 +79,16 @@ export async function startWhatsapp(id: string) {
     });
 
     if (state === SocketState.CONNECTED) {
-      const host = await client.getHostDevice();
-      const wid = await client.getWid();
+      const [wid] = await Promise.all([client.getWid()]);
       const [phoneNumber] = wid.split("@");
-      const profileStatus = await client.getStatus(wid);
-      const [chats, contacts] = await Promise.all([
+      const [chats, contacts, profileStatus] = await Promise.all([
         client.listChats(),
         client.getAllContacts(),
+        client.getStatus(wid),
       ]);
+
+      const profile = await client.getProfilePicFromServer(wid);
+      const host = await client.getHostDevice();
 
       await prisma.instance.update({
         where: { id: instance.id },
@@ -70,6 +99,7 @@ export async function startWhatsapp(id: string) {
           name: host.pushname,
           chats: chats.length,
           contacts: contacts.length,
+          picture: profile.eurl,
         },
       });
     }
