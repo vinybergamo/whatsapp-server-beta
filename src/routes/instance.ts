@@ -37,9 +37,7 @@ export function instanceRoutes(app: FastifyInstance) {
       });
     }
 
-    // await whatsapp.logout();
-
-    // await whatsapp.close();
+    await whatsapp.close();
 
     return reply.code(200).send({
       message: "Whatsapp disconnected",
