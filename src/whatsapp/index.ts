@@ -16,7 +16,7 @@ export async function startWhatsapp(id: string) {
     session: instance.id,
     disableWelcome: true,
     waitForLogin: false,
-    logQR: true,
+    logQR: config.app.env === "development",
     browserArgs: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
