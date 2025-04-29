@@ -7,6 +7,10 @@ export async function startWhatsapp(id: string) {
   const instance = await prisma.instance.findUnique({ where: { id } });
   if (!instance) throw new Error("Instance not found");
 
+  const launchArgs = JSON.stringify({
+    args: [`--user-data-dir=~/tokens/${id}`],
+  });
+
   let client = instances.get(instance.id);
   if (client) return client;
 
@@ -26,7 +30,7 @@ export async function startWhatsapp(id: string) {
     ],
     headless: true,
     puppeteerOptions: {},
-    browserWS: `wss://${config.whatsapp.browser}?token=${config.whatsapp.browserToken}&timeout=0`,
+    browserWS: `wss://${config.whatsapp.browser}?token=${config.whatsapp.browserToken}&timeout=0&launch=${launchArgs}`,
     autoClose: 60000,
     statusFind: async (status) => {
       if (status === StatusFind.inChat) {
@@ -69,7 +73,6 @@ export async function startWhatsapp(id: string) {
   instances.set(instance.id, client);
 
   client.onStateChange(async (state) => {
-    console.log("State changed", state);
     await prisma.instance.update({
       where: { id: instance.id },
       data: {
