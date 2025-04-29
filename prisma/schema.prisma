@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String     @id @default(cuid())
+  name          String
+  email         String     @unique
+  document      String?    @unique
+  documentType  String?    @default("BR:CPF")
+  emailVerified DateTime?
+  avatar        String?
+  password      String?
+  phone         String?    @unique
+  instances     Instance[]
+
+  @@map("users")
+}
+
+model Instance {
+  id                 String    @id @default(cuid())
+  instanceName       String
+  connectedPhone     String?
+  picture            String?
+  profileStatus      String?
+  name               String?
+  state              String?
+  connected          Boolean   @default(false)
+  contacts           Int       @default(0)
+  chats              Int       @default(0)
+  messagesSent       Int       @default(0)
+  messagesReceived   Int       @default(0)
+  isActive           Boolean   @default(false)
+  platform           String?   @default("smba")
+  blocked            Boolean   @default(false)
+  automaticReading   Boolean   @default(false)
+  rejectCalls        Boolean   @default(false)
+  rejectCallsMessage String?   @default("Não posso atender chamadas no momento.")
+  syncContacts       Boolean   @default(false)
+  token              String    @unique @default(cuid())
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
+  User               User?     @relation(fields: [userId], references: [id])
+  userId             String?
+
+  @@map("instances")
+}
