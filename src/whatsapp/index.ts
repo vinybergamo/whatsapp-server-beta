@@ -2,22 +2,15 @@ import { create, SocketState } from "@wppconnect-team/wppconnect";
 import { prisma } from "../database";
 import { instances } from "./instances";
 import { config } from "../utils/config";
+import fs from "fs/promises";
+import path from "path";
 
 export async function startWhatsapp(id: string) {
-  const folderName = "tokens";
-  const instance = await prisma.instance.findUnique({
-    where: { id },
-  });
-
-  if (!instance) {
-    throw new Error("Instance not found");
-  }
+  const instance = await prisma.instance.findUnique({ where: { id } });
+  if (!instance) throw new Error("Instance not found");
 
   let client = instances.get(instance.id);
-
-  if (client) {
-    return client;
-  }
+  if (client) return client;
 
   client = await create({
     session: instance.id,
@@ -27,24 +20,29 @@ export async function startWhatsapp(id: string) {
     browserArgs: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
-      "--aggressive-cache-discard",
-      "--disable-cache",
-      "--disable-application-cache",
-      "--disable-offline-load-stale-cache",
-      "--disk-cache-size=0",
+      "--disable-dev-shm-usage",
+      "--disable-extensions",
+      "--disable-gpu",
+      "--disable-infobars",
+      "--window-size=1280,800",
     ],
     headless: true,
-    puppeteerOptions: {
-      executablePath: config.whatsapp.browser_bin,
-    },
-    folderNameToken: folderName,
+    puppeteerOptions: {},
+    browserWS: `wss://${config.whatsapp.browser}?token=${config.whatsapp.browserToken}&timeout=0`,
     autoClose: 60000,
+  });
+
+  await new Promise<void>((resolve) => {
+    client.onStateChange((state) => {
+      if (state === "CONNECTED" || state === "UNPAIRED") {
+        resolve();
+      }
+    });
   });
 
   instances.set(instance.id, client);
 
   client.onStateChange(async (state) => {
-    console.log("State changed:", state);
     await prisma.instance.update({
       where: { id: instance.id },
       data: {
@@ -58,6 +56,10 @@ export async function startWhatsapp(id: string) {
       const wid = await client.getWid();
       const [phoneNumber] = wid.split("@");
       const profileStatus = await client.getStatus(wid);
+      const [chats, contacts] = await Promise.all([
+        client.listChats(),
+        client.getAllContacts(),
+      ]);
 
       await prisma.instance.update({
         where: { id: instance.id },
@@ -66,58 +68,24 @@ export async function startWhatsapp(id: string) {
           profileStatus: profileStatus.status,
           connectedPhone: phoneNumber,
           name: host.pushname,
+          chats: chats.length,
+          contacts: contacts.length,
         },
       });
     }
   });
 
   client.onAnyMessage(async (message) => {
-    console.log("Message received:", message);
     const fromMe = message.fromMe;
-    const instance = await prisma.instance.findUnique({
+    const inst = await prisma.instance.findUnique({ where: { id } });
+    if (!inst) return;
+
+    await prisma.instance.update({
       where: { id: id },
+      data: fromMe
+        ? { messagesSent: inst.messagesSent + 1 }
+        : { messagesReceived: inst.messagesReceived + 1 },
     });
-
-    console.log("Instance found:", instance);
-
-    if (fromMe) {
-      await prisma.instance.update({
-        where: { id: instance.id },
-        data: {
-          messagesSent: instance.messagesSent + 1,
-        },
-      });
-    }
-
-    if (!fromMe) {
-      await prisma.instance.update({
-        where: { id: instance.id },
-        data: {
-          messagesReceived: instance.messagesReceived + 1,
-        },
-      });
-    }
-  });
-
-  await new Promise<void>((resolve) => {
-    client.onStateChange((state) => {
-      if (state === "CONNECTED" || state === "UNPAIRED") {
-        resolve();
-      }
-    });
-  });
-
-  const [chats, contacts] = await Promise.all([
-    client.listChats(),
-    client.getAllContacts(),
-  ]);
-
-  await prisma.instance.update({
-    where: { id: instance.id },
-    data: {
-      chats: chats.length,
-      contacts: contacts.length,
-    },
   });
 
   return client;

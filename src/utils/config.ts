@@ -19,6 +19,7 @@ export const config = {
     expiresIn: get("JWT_EXPIRES_IN").default("1d").asString(),
   },
   whatsapp: {
-    browser_bin: get("BROWSER_PATH").default("/usr/bin/chromium").asString(),
+    browser: get("BROWSER").required(true).asString(),
+    browserToken: get("BROWSER_TOKEN").required(true).asString(),
   },
 };

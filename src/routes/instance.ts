@@ -14,10 +14,16 @@ export function instanceRoutes(app: FastifyInstance) {
         message: "Whatsapp is already connected",
       });
     }
+    try {
+      const qrcode = await whatsapp.getQrCode();
 
-    const qrcode = await whatsapp.getQrCode();
-
-    return reply.code(200).send(qrcode);
+      return reply.code(200).send(qrcode);
+    } catch (error) {
+      console.error("Error fetching QR code:", error);
+      return reply.code(500).send({
+        message: "Error fetching QR code",
+      });
+    }
   });
 
   app.post("/instance/disconnect", async (request, reply) => {
