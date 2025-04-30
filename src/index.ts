@@ -11,6 +11,7 @@ import { verifyToken } from "./helpers/functions/verify-token";
 import { instancesRoutes } from "./routes/instances";
 import { instanceAuthPlugin } from "./helpers/plugins/instance";
 import { messagesRoutes } from "./routes/messages";
+import { sendWebhook } from "./helpers/functions/send-webhook";
 
 dotenv.config();
 
@@ -18,12 +19,24 @@ async function closeServer() {
   console.log("Closing server...");
 
   console.log("Closing database connection...");
+
+  const instancesList = await prisma.instance.findMany({
+    where: {
+      connected: true,
+    },
+  });
+
+  for (const instance of instancesList) {
+    await sendWebhook(instance.id, "INSTANCE_DISCONNECTED", { instance });
+  }
+
   await prisma.instance.updateMany({
     data: {
       connected: false,
       state: "DISCONNECTED",
     },
   });
+
   await prisma.$disconnect();
 
   console.log("Closing instances...");

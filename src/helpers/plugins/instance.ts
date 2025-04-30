@@ -1,7 +1,9 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
 import { prisma } from "../../database";
-import { startWhatsapp } from "../../whatsapp";
+import { instances } from "../../whatsapp/instances";
+
+const CONNECTION_ROUTES = ["/instance/qrcode"];
 
 async function hook(request: FastifyRequest, reply: FastifyReply) {
   const { instanceId } = request.query as { instanceId: string };
@@ -35,7 +37,19 @@ async function hook(request: FastifyRequest, reply: FastifyReply) {
     return reply.status(401).send({ message: "Invalid token" });
   }
 
-  const whatsapp = await startWhatsapp(instanceId);
+  const [path] = request.url.split("?");
+
+  if (CONNECTION_ROUTES.includes(path)) {
+    request.instance = instance;
+    request.instanceId = instanceId;
+    return;
+  }
+
+  const whatsapp = instances.get(instance.id);
+
+  if (!whatsapp) {
+    return reply.status(404).send({ message: "Instance not started" });
+  }
 
   request.whatsapp = whatsapp;
   request.instanceId = instanceId;

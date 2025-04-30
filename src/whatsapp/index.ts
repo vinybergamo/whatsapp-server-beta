@@ -2,13 +2,23 @@ import { create, SocketState, StatusFind } from "@wppconnect-team/wppconnect";
 import { prisma } from "../database";
 import { instances } from "./instances";
 import { config } from "../utils/config";
+import axios from "axios";
+import { sendWebhook } from "../helpers/functions/send-webhook";
 
 export async function startWhatsapp(id: string) {
   const instance = await prisma.instance.findUnique({ where: { id } });
   if (!instance) throw new Error("Instance not found");
 
   const launchArgs = JSON.stringify({
-    args: [`--user-data-dir=~/tokens/${id}`],
+    args: [
+      `--user-data-dir=~/tokens/${id}`,
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-extensions",
+      "--disable-gpu",
+      "--disable-infobars",
+    ],
   });
 
   let client = instances.get(instance.id);
@@ -32,6 +42,16 @@ export async function startWhatsapp(id: string) {
     puppeteerOptions: {},
     browserWS: `wss://${config.whatsapp.browser}?token=${config.whatsapp.browserToken}&timeout=0&launch=${launchArgs}`,
     autoClose: 60000,
+    catchQR: (
+      qrCode: string,
+      asciiQR: string,
+      attempt: number,
+      urlCode?: string
+    ) => {
+      sendWebhook(instance.id, "QR_CODE", {
+        qrcode: { image: qrCode, asciiQR, attempt, urlCode },
+      });
+    },
     statusFind: async (status) => {
       if (status === StatusFind.inChat) {
         await new Promise((resolve) => setTimeout(resolve, 10000));
@@ -62,14 +82,6 @@ export async function startWhatsapp(id: string) {
     },
   });
 
-  await new Promise<void>((resolve) => {
-    client.onStateChange((state) => {
-      if (state === SocketState.CONNECTED || state === SocketState.UNPAIRED) {
-        resolve();
-      }
-    });
-  });
-
   instances.set(instance.id, client);
 
   client.onStateChange(async (state) => {
@@ -80,6 +92,14 @@ export async function startWhatsapp(id: string) {
         connected: state === SocketState.CONNECTED,
       },
     });
+
+    if (state === SocketState.CONNECTED) {
+      await sendWebhook(instance.id, "INSTANCE_CONNECTED", {
+        instance: await prisma.instance.findUnique({
+          where: { id: instance.id },
+        }),
+      });
+    }
 
     if (state === SocketState.CONNECTED) {
       setInterval(async () => {
@@ -108,18 +128,73 @@ export async function startWhatsapp(id: string) {
         });
       }, 60000);
     }
+
+    if (state === SocketState.UNPAIRED) {
+      instances.delete(instance.id);
+      await prisma.instance.update({
+        where: { id: instance.id },
+        data: {
+          state,
+          connected: false,
+        },
+      });
+      const qr = await client.getQrCode();
+
+      if (!qr) {
+        sendWebhook(instance.id, "INSTANCE_DISCONNECTED", {
+          instance: await prisma.instance.findUnique({
+            where: { id: instance.id },
+          }),
+        });
+      }
+    }
+  });
+
+  client.onIncomingCall(async (call) => {
+    sendWebhook(instance.id, "INCOMING_CALL", { call });
+
+    if (instance.rejectCalls) {
+      await client.rejectCall(call.id);
+
+      await client.sendText(
+        call?.peerJid || call?.groupJid,
+        instance.rejectCallsMessage
+      );
+    }
   });
 
   client.onAnyMessage(async (message) => {
+    const isStatus = message.from === "status@broadcast";
+    const isNewsletter = message.from.endsWith("@newsletter");
+
+    if (isStatus || isNewsletter) return;
+
     const fromMe = message.fromMe;
-    const inst = await prisma.instance.findUnique({ where: { id } });
-    if (!inst) return;
+    const instance = await prisma.instance.findUnique({
+      where: { id },
+      include: {
+        webhooks: true,
+      },
+    });
+    if (!instance) return;
 
     await prisma.instance.update({
       where: { id: id },
       data: fromMe
-        ? { messagesSent: inst.messagesSent + 1 }
-        : { messagesReceived: inst.messagesReceived + 1 },
+        ? { messagesSent: instance.messagesSent + 1 }
+        : { messagesReceived: instance.messagesReceived + 1 },
+    });
+
+    const event = fromMe ? "MESSAGE_SENT" : "MESSAGE_RECEIVED";
+
+    sendWebhook(instance.id, event, { message });
+  });
+
+  await new Promise<void>((resolve) => {
+    client.onStateChange((state) => {
+      if (state === SocketState.CONNECTED || state === SocketState.UNPAIRED) {
+        resolve();
+      }
     });
   });
 

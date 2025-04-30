@@ -1,11 +1,14 @@
 import { FastifyInstance, FastifyRequest } from "fastify";
 import { intsancePlugin } from "../helpers/plugins/instance";
+import { sendWebhook } from "../helpers/functions/send-webhook";
+import { instances } from "../whatsapp/instances";
+import { startWhatsapp } from "../whatsapp";
 
 export function instanceRoutes(app: FastifyInstance) {
   app.register(intsancePlugin);
 
   app.get("/instance/qrcode", async (request, reply) => {
-    const whatsapp = request.whatsapp;
+    const whatsapp = await startWhatsapp(request.instance.id);
 
     const isAuthenticated = await whatsapp.isAuthenticated();
 
@@ -14,16 +17,45 @@ export function instanceRoutes(app: FastifyInstance) {
         message: "Whatsapp is already connected",
       });
     }
-    try {
-      const qrcode = await whatsapp.getQrCode();
+    const qrcode = await whatsapp.getQrCode();
 
-      return reply.code(200).send(qrcode);
-    } catch (error) {
-      console.error("Error fetching QR code:", error);
-      return reply.code(500).send({
-        message: "Error fetching QR code",
+    return reply.code(200).send(qrcode);
+  });
+
+  app.post("/instance/logout", async (request, reply) => {
+    const whatsapp = request.whatsapp;
+
+    const isAuthenticated = await whatsapp.isAuthenticated();
+
+    if (!isAuthenticated) {
+      return reply.code(400).send({
+        message: "Whatsapp is not connected",
       });
     }
+
+    await whatsapp.logout();
+
+    await app.prisma.instance.update({
+      where: { id: request.instance.id },
+      data: {
+        connected: false,
+        state: "DISCONNECTED",
+      },
+    });
+
+    const instance = await app.prisma.instance.findUnique({
+      where: { id: request.instance.id },
+    });
+
+    sendWebhook(instance.id, "INSTANCE_DISCONNECTED", { instance });
+
+    await whatsapp.close();
+
+    instances.delete(request.instance.id);
+
+    return reply.code(200).send({
+      message: "Whatsapp logged out",
+    });
   });
 
   app.post("/instance/disconnect", async (request, reply) => {
@@ -38,6 +70,22 @@ export function instanceRoutes(app: FastifyInstance) {
     }
 
     await whatsapp.close();
+
+    await app.prisma.instance.update({
+      where: { id: request.instance.id },
+      data: {
+        connected: false,
+        state: "DISCONNECTED",
+      },
+    });
+
+    const instance = await app.prisma.instance.findUnique({
+      where: { id: request.instance.id },
+    });
+
+    sendWebhook(instance.id, "INSTANCE_DISCONNECTED", { instance });
+
+    instances.delete(request.instance.id);
 
     return reply.code(200).send({
       message: "Whatsapp disconnected",
