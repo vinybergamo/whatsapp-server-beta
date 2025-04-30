@@ -8,6 +8,21 @@ export function instanceRoutes(app: FastifyInstance) {
   app.register(intsancePlugin);
 
   app.get("/instance/qrcode", async (request, reply) => {
+    const instance = await app.instances.get(request.instance.id);
+
+    if (instance) {
+      const isAuthenticated = await instance.isAuthenticated();
+      if (isAuthenticated) {
+        return reply.code(400).send({
+          message: "Whatsapp is already connected",
+        });
+      }
+
+      const qrcode = await instance.getQrCode();
+
+      return reply.code(200).send(qrcode);
+    }
+
     const whatsapp = await startWhatsapp(request.instance.id);
 
     const isAuthenticated = await whatsapp.isAuthenticated();
