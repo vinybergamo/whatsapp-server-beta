@@ -41,6 +41,10 @@ async function hook(request: FastifyRequest, reply: FastifyReply) {
     return reply.status(401).send({ message: "Instance is not active" });
   }
 
+  if (instance.blocked) {
+    return reply.status(401).send({ message: "Instance is blocked" });
+  }
+
   const [path] = request.url.split("?");
 
   if (CONNECTION_ROUTES.includes(path)) {

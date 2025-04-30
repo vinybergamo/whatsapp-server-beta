@@ -173,7 +173,7 @@ export async function startWhatsapp(id: string) {
     if (isStatus || isNewsletter) return;
 
     const fromMe = message.fromMe;
-    const instance = await prisma.instance.findUnique({
+    const i = await prisma.instance.findUnique({
       where: { id },
       include: {
         webhooks: true,
@@ -181,16 +181,20 @@ export async function startWhatsapp(id: string) {
     });
     if (!instance) return;
 
+    if (i.automaticReading) {
+      await client.sendSeen(message.from);
+    }
+
     await prisma.instance.update({
       where: { id: id },
       data: fromMe
-        ? { messagesSent: instance.messagesSent + 1 }
-        : { messagesReceived: instance.messagesReceived + 1 },
+        ? { messagesSent: i.messagesSent + 1 }
+        : { messagesReceived: i.messagesReceived + 1 },
     });
 
     const event = fromMe ? "MESSAGE_SENT" : "MESSAGE_RECEIVED";
 
-    sendWebhook(instance.id, event, { message });
+    sendWebhook(i.id, event, { message });
   });
 
   await new Promise<void>((resolve) => {
