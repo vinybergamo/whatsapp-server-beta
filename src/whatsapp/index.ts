@@ -151,14 +151,17 @@ export async function startWhatsapp(id: string) {
   });
 
   client.onIncomingCall(async (call) => {
+    const i = await prisma.instance.findUnique({
+      where: { id },
+    });
     sendWebhook(instance.id, "INCOMING_CALL", { call });
 
-    if (instance.rejectCalls) {
+    if (i.rejectCalls) {
       await client.rejectCall(call.id);
 
       await client.sendText(
         call?.peerJid || call?.groupJid,
-        instance.rejectCallsMessage
+        i.rejectCallsMessage
       );
     }
   });
