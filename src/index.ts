@@ -17,6 +17,8 @@ import { sleep } from "./helpers/functions/sleep";
 
 dotenv.config();
 
+const SIGNALS = ["SIGINT", "SIGTERM", "SIGQUIT", "SIGHUP", "SIGUSR2"];
+
 async function closeServer() {
   console.log("Closing server...");
 
@@ -88,34 +90,12 @@ app.server.on("close", async () => {
   console.log("[EVENT - close]: Server closed");
 });
 
-process.on("SIGHUP", async () => {
-  console.log("Received SIGHUP signal. Closing server...");
-  await closeServer();
-  process.exit(0);
-});
-
-process.on("SIGINT", async () => {
-  console.log("Received SIGINT signal. Closing server...");
-  await closeServer();
-  // process.exit(0);
-});
-
-process.on("SIGTERM", async () => {
-  console.log("Received SIGTERM signal. Closing server...");
-  await closeServer();
-  process.exit(0);
-});
-
-process.on("SIGQUIT", async () => {
-  console.log("Received SIGQUIT signal. Closing server...");
-  await closeServer();
-  process.exit(0);
-});
-
-process.on("SIGUSR2", async () => {
-  console.log("Received SIGUSR2 signal. Closing server...");
-  await closeServer();
-  process.exit(0);
+SIGNALS.forEach((signal) => {
+  process.on(signal, async () => {
+    console.log(`Received ${signal} signal. Closing server...`);
+    await closeServer();
+    process.exit(0);
+  });
 });
 
 app.listen(
