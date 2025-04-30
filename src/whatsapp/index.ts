@@ -102,6 +102,10 @@ export async function startWhatsapp(id: string) {
       });
     }
 
+    if (state === SocketState.CONFLICT) {
+      await client.useHere();
+    }
+
     if (state === SocketState.CONNECTED) {
       setInterval(async () => {
         const [wid] = await Promise.all([client.getWid()]);
