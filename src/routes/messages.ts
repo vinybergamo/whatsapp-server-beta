@@ -63,6 +63,7 @@ export function messagesRoutes(app: FastifyInstance) {
             caption: { type: "string" },
             filename: { type: "string" },
             delay: { type: "number" },
+            messageId: { type: "string" },
           },
           required: ["phone", "document"],
         },
@@ -76,11 +77,13 @@ export function messagesRoutes(app: FastifyInstance) {
           caption?: string;
           filename?: string;
           delay?: number;
+          messageId?: string;
         };
       }>,
       reply
     ) => {
-      const { phone, document, caption, filename, delay } = request.body;
+      const { phone, document, caption, filename, delay, messageId } =
+        request.body;
 
       const whatsapp = request.whatsapp;
 
@@ -96,6 +99,7 @@ export function messagesRoutes(app: FastifyInstance) {
         caption: caption,
         filename: filename,
         delay: delay,
+        quotedMsg: messageId,
       });
 
       return reply.code(200).send({
@@ -114,10 +118,12 @@ export function messagesRoutes(app: FastifyInstance) {
           properties: {
             phone: { type: "string" },
             image: { type: "string" },
+            filename: { type: "string" },
             caption: { type: "string" },
-            delay: { type: "number" },
+            viewOnce: { type: "boolean" },
+            messageId: { type: "string" },
           },
-          required: ["phone", "image"],
+          required: ["phone", "image", "filename"],
         },
       },
     },
@@ -126,18 +132,16 @@ export function messagesRoutes(app: FastifyInstance) {
         Body: {
           phone: string;
           image: string;
+          filename: string;
           caption?: string;
-          delay?: number;
+          viewOnce?: boolean;
+          messageId?: string;
         };
       }>,
       reply
     ) => {
-      // Not Implemented yet
-      return reply.code(501).send({
-        message: "Not Implemented yet",
-      });
-
-      const { phone, image, caption, delay } = request.body;
+      const { phone, image, caption, filename, viewOnce, messageId } =
+        request.body;
 
       const whatsapp = request.whatsapp;
 
@@ -148,6 +152,45 @@ export function messagesRoutes(app: FastifyInstance) {
           message: "Phone number is not valid",
         });
       }
+
+      const isUrl = /^https?:\/\/.+\.(jpg|jpeg|png|gif|bmp|webp)$/.test(image);
+      const isBase64 = /^data:image\/(jpeg|png|gif);base64,/.test(image);
+
+      if (isUrl) {
+        const result = await whatsapp.sendImage(
+          phone,
+          image,
+          filename,
+          caption,
+          messageId,
+          viewOnce
+        );
+
+        return reply.code(200).send({
+          instanceId: request.instanceId,
+          messageId: result.id,
+        });
+      }
+
+      if (isBase64) {
+        const result = await whatsapp.sendImageFromBase64(
+          phone,
+          image,
+          filename,
+          caption,
+          messageId,
+          viewOnce
+        );
+
+        return reply.code(200).send({
+          instanceId: request.instanceId,
+          messageId: result.id,
+        });
+      }
+
+      return reply.code(400).send({
+        message: "Image must be a URL or a base64 string",
+      });
     }
   );
 }
