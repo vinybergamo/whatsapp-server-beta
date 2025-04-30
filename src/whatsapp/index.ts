@@ -2,7 +2,6 @@ import { create, SocketState, StatusFind } from "@wppconnect-team/wppconnect";
 import { prisma } from "../database";
 import { instances } from "./instances";
 import { config } from "../utils/config";
-import axios from "axios";
 import { sendWebhook } from "../helpers/functions/send-webhook";
 
 export async function startWhatsapp(id: string) {
@@ -29,6 +28,7 @@ export async function startWhatsapp(id: string) {
     disableWelcome: true,
     waitForLogin: false,
     logQR: config.app.env === "development",
+    updatesLog: false,
     browserArgs: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
@@ -90,6 +90,7 @@ export async function startWhatsapp(id: string) {
       data: {
         state,
         connected: state === SocketState.CONNECTED,
+        disconnectedBySystem: false,
       },
     });
 

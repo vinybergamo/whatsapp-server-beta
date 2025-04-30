@@ -91,6 +91,7 @@ export function instanceRoutes(app: FastifyInstance) {
       data: {
         connected: false,
         state: "DISCONNECTED",
+        disconnectedBySystem: false,
       },
     });
 

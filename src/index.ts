@@ -12,6 +12,8 @@ import { instancesRoutes } from "./routes/instances";
 import { instanceAuthPlugin } from "./helpers/plugins/instance";
 import { messagesRoutes } from "./routes/messages";
 import { sendWebhook } from "./helpers/functions/send-webhook";
+import { startWhatsapp } from "./whatsapp";
+import { sleep } from "./helpers/functions/sleep";
 
 dotenv.config();
 
@@ -26,16 +28,27 @@ async function closeServer() {
     },
   });
 
-  for (const instance of instancesList) {
-    await sendWebhook(instance.id, "INSTANCE_DISCONNECTED", { instance });
-  }
-
   await prisma.instance.updateMany({
+    where: {
+      connected: true,
+    },
     data: {
       connected: false,
       state: "DISCONNECTED",
+      disconnectedBySystem: true,
     },
   });
+
+  for (const instance of instancesList) {
+    await sendWebhook(instance.id, "INSTANCE_DISCONNECTED", {
+      instance: {
+        ...instance,
+        connected: false,
+        state: "DISCONNECTED",
+        disconnectedBySystem: true,
+      },
+    });
+  }
 
   await prisma.$disconnect();
 
@@ -48,6 +61,8 @@ async function closeServer() {
   console.log("All instances closed");
 
   await app.close();
+
+  await sleep(1000);
 }
 
 const app = fastify();
@@ -66,11 +81,11 @@ app.register(instanceRoutes);
 app.register(messagesRoutes);
 
 app.addHook("onClose", async () => {
-  console.log("Server closed");
+  console.log("[HOOK - onClose]: Server closed");
 });
 
 app.server.on("close", async () => {
-  console.log("Server closed");
+  console.log("[EVENT - close]: Server closed");
 });
 
 process.on("SIGHUP", async () => {
@@ -82,7 +97,7 @@ process.on("SIGHUP", async () => {
 process.on("SIGINT", async () => {
   console.log("Received SIGINT signal. Closing server...");
   await closeServer();
-  process.exit(0);
+  // process.exit(0);
 });
 
 process.on("SIGTERM", async () => {
@@ -121,6 +136,17 @@ app.listen(
     if (typeof app.server.address() === "object") {
       const address = app.server.address() as AddressInfo;
       console.log(`Server listening at ${address.address}:${address.port}`);
+    }
+
+    const instancesList = await prisma.instance.findMany({
+      where: {
+        connected: false,
+        disconnectedBySystem: true,
+      },
+    });
+
+    for (const instance of instancesList) {
+      await startWhatsapp(instance.id);
     }
   }
 );
