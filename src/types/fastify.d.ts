@@ -20,6 +20,9 @@ declare module "fastify" {
   interface FastifyInstance {
     prisma: PrismaClient;
     instances: Map<string, Whatsapp>;
+    plugins: {
+      instanceAuth: (app: FastifyInstance) => void;
+    };
     generateToken: (payload: any) => string;
     verifyToken: (token: string) => any;
   }

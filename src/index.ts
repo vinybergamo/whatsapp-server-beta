@@ -9,6 +9,8 @@ import { authRoutes } from "./routes/auth";
 import { generateToken } from "./helpers/functions/generate-token";
 import { verifyToken } from "./helpers/functions/verify-token";
 import { instancesRoutes } from "./routes/instances";
+import { instanceAuthPlugin } from "./helpers/plugins/instance";
+import { messagesRoutes } from "./routes/messages";
 
 dotenv.config();
 
@@ -41,10 +43,14 @@ app.decorate("prisma", prisma);
 app.decorate("instances", instances);
 app.decorate("generateToken", generateToken);
 app.decorate("verifyToken", verifyToken);
+app.decorate("plugins", {
+  instanceAuth: instanceAuthPlugin,
+});
 
 app.register(authRoutes);
 app.register(instancesRoutes);
 app.register(instanceRoutes);
+app.register(messagesRoutes);
 
 app.addHook("onClose", async () => {
   console.log("Server closed");

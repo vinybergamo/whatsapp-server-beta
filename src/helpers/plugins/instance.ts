@@ -47,3 +47,4 @@ function callback(app: FastifyInstance) {
 }
 
 export const intsancePlugin = fp(callback);
+export const instanceAuthPlugin = fp(callback);
