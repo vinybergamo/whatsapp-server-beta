@@ -37,6 +37,10 @@ async function hook(request: FastifyRequest, reply: FastifyReply) {
     return reply.status(401).send({ message: "Invalid token" });
   }
 
+  if (!instance.isActive) {
+    return reply.status(401).send({ message: "Instance is not active" });
+  }
+
   const [path] = request.url.split("?");
 
   if (CONNECTION_ROUTES.includes(path)) {
