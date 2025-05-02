@@ -17,7 +17,7 @@
     "prisma:format": "prisma format",
     "prisma:check": "prisma validate",
     "prisma:info": "prisma info",
-    "deploy": "prisma migrate deploy && prisma db push && prisma generate && node dist/index.js"
+    "start:prod": "prisma migrate deploy && prisma db push && prisma generate && node dist/index.js"
   },
   "keywords": [],
   "author": "",
