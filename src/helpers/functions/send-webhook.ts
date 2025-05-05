@@ -18,6 +18,17 @@ export async function sendWebhook(
   const webhooks = instance.webhooks;
 
   for (const webhook of webhooks) {
+    const events = webhook.events;
+    const isEnabled = events.some((e) => e === event) && webhook.enabled;
+
+    if (!isEnabled) {
+      continue;
+    }
+
+    if (!events.includes(event)) {
+      continue;
+    }
+
     await axios.post(
       webhook.url,
       {

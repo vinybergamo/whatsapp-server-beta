@@ -59,6 +59,8 @@ model Webhook {
   instance   Instance @relation(fields: [instanceId], references: [id])
   instanceId String
   url        String
+  events     String[] @default([]) @db.Text
+  enabled    Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
