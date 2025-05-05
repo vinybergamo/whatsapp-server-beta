@@ -202,6 +202,15 @@ export async function startWhatsapp(id: string) {
     sendWebhook(i.id, event, { message });
   });
 
+  client.onAck(async (message) => {
+    const i = await prisma.instance.findUnique({
+      where: { id },
+    });
+    if (!instance) return;
+
+    sendWebhook(i.id, "MESSAGE_ACK", { message });
+  });
+
   await new Promise<void>((resolve) => {
     client.onStateChange((state) => {
       if (state === SocketState.CONNECTED || state === SocketState.UNPAIRED) {
