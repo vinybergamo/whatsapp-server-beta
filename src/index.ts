@@ -15,6 +15,7 @@ import { sendWebhook } from "./helpers/functions/send-webhook";
 import { startWhatsapp } from "./whatsapp";
 import { sleep } from "./helpers/functions/sleep";
 import { publicRoutes } from "./routes/public";
+import { usersRoute } from "./routes/users";
 
 dotenv.config();
 
@@ -83,6 +84,7 @@ app.register(instancesRoutes);
 app.register(instanceRoutes);
 app.register(messagesRoutes);
 app.register(publicRoutes);
+app.register(usersRoute);
 
 app.addHook("onClose", async () => {
   console.log("[HOOK - onClose]: Server closed");
