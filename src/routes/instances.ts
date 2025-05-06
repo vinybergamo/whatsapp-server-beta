@@ -39,17 +39,42 @@ export function instancesRoutes(app: FastifyInstance) {
     }
   );
 
-  app.get("/instances", async (request, reply) => {
-    const user = request.user;
-
-    const instances = await app.prisma.instance.findMany({
-      where: {
-        userId: user.id,
+  app.get(
+    "/instances",
+    {
+      schema: {
+        querystring: {
+          type: "object",
+          properties: {
+            webhooks: { type: "string", enum: ["true", "false"] },
+          },
+          required: ["webhooks"],
+        },
       },
-    });
+    },
+    async (
+      request: FastifyRequest<{
+        Querystring: {
+          webhooks: string;
+        };
+      }>,
+      reply
+    ) => {
+      const { webhooks } = request.query;
+      const user = request.user;
 
-    return reply.send(instances).code(200);
-  });
+      const instances = await app.prisma.instance.findMany({
+        where: {
+          userId: user.id,
+        },
+        include: {
+          webhooks: webhooks === "true",
+        },
+      });
+
+      return reply.send(instances).code(200);
+    }
+  );
 
   app.post(
     "/instances/:id/webhooks",
