@@ -8,7 +8,7 @@ export function instanceRoutes(app: FastifyInstance) {
   app.register(intsancePlugin);
 
   app.get("/instance/qrcode", async (request, reply) => {
-    const instance = await app.instances.get(request.instance.id);
+    const instance = app.instances.get(request.instance.id);
 
     if (instance) {
       const isAuthenticated = await instance.isAuthenticated();

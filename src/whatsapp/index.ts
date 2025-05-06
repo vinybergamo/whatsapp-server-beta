@@ -21,7 +21,13 @@ export async function startWhatsapp(id: string) {
   });
 
   let client = instances.get(instance.id);
-  if (client) return client;
+
+  if (client) {
+    console.log("WPPConnect already started", instance.id);
+    return client;
+  }
+
+  console.log("Creating WPPConnect", instance.id);
 
   client = await create({
     session: instance.id,
@@ -135,7 +141,6 @@ export async function startWhatsapp(id: string) {
     }
 
     if (state === SocketState.UNPAIRED) {
-      instances.delete(instance.id);
       await prisma.instance.update({
         where: { id: instance.id },
         data: {
