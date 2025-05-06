@@ -58,6 +58,7 @@ model Webhook {
   id         String   @id @default(cuid())
   instance   Instance @relation(fields: [instanceId], references: [id])
   instanceId String
+  name       String   @default("Webhook")
   url        String
   events     String[] @default([]) @db.Text
   enabled    Boolean  @default(true)
