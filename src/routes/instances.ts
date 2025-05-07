@@ -25,17 +25,112 @@ export function instancesRoutes(app: FastifyInstance) {
       }>,
       reply
     ) => {
+      const now = new Date();
       const { name } = request.body;
       const user = request.user;
+
+      const trialExpired = user.trialEnd < now;
+
+      if (trialExpired) {
+        return reply.status(403).send({
+          message: "Trial expired",
+        });
+      }
+
+      const userInstances = await app.prisma.instance.count({
+        where: {
+          userId: user.id,
+        },
+      });
+
+      // if (user.isTrial && userInstances >= 1) {
+      //   return reply.status(403).send({
+      //     message: "Trial limit reached",
+      //   });
+      // }
 
       const instance = await app.prisma.instance.create({
         data: {
           instanceName: name,
           userId: user.id,
+          isActive: true,
+          state: "DISCONNECTED",
         },
       });
 
       return reply.send(instance).code(201);
+    }
+  );
+
+  app.put(
+    "/instances/:id",
+    {
+      schema: {
+        body: {
+          type: "object",
+          properties: {
+            instanceName: { type: "string" },
+            automaticReading: { type: "boolean" },
+            syncContacts: { type: "boolean" },
+            rejectCalls: { type: "boolean" },
+            rejectCallsMessage: { type: "string" },
+          },
+        },
+      },
+    },
+    async (
+      request: FastifyRequest<{
+        Params: {
+          id: string;
+        };
+        Body: {
+          instanceName: string;
+          automaticReading: boolean;
+          syncContacts: boolean;
+          rejectCalls: boolean;
+          rejectCallsMessage: string;
+        };
+      }>,
+      reply
+    ) => {
+      const user = request.user;
+      const { id } = request.params;
+      const {
+        instanceName,
+        automaticReading,
+        rejectCalls,
+        rejectCallsMessage,
+        syncContacts,
+      } = request.body;
+
+      const instance = await app.prisma.instance.findUnique({
+        where: {
+          id,
+        },
+      });
+
+      if (!instance) {
+        return reply.status(404).send({ message: "Instance not found" });
+      }
+
+      if (instance.userId !== user.id) {
+        return reply.status(403).send({ message: "Forbidden" });
+      }
+
+      const updatedInstance = await app.prisma.instance.update({
+        where: {
+          id,
+        },
+        data: {
+          instanceName,
+          automaticReading,
+          syncContacts,
+          rejectCalls,
+          rejectCallsMessage,
+        },
+      });
+
+      return reply.send(updatedInstance).code(200);
     }
   );
 
@@ -76,6 +171,40 @@ export function instancesRoutes(app: FastifyInstance) {
     }
   );
 
+  app.get(
+    "/instances/:id",
+    async (
+      request: FastifyRequest<{
+        Params: {
+          id: string;
+        };
+      }>,
+      reply
+    ) => {
+      const user = request.user;
+      const { id } = request.params;
+
+      const instance = await app.prisma.instance.findUnique({
+        where: {
+          id,
+        },
+        include: {
+          webhooks: true,
+        },
+      });
+
+      if (!instance) {
+        return reply.status(404).send({ message: "Instance not found" });
+      }
+
+      if (instance.userId !== user.id) {
+        return reply.status(403).send({ message: "Forbidden" });
+      }
+
+      return reply.code(200).send(instance);
+    }
+  );
+
   app.post(
     "/instances/:id/webhooks",
     {
@@ -83,10 +212,11 @@ export function instancesRoutes(app: FastifyInstance) {
         body: {
           type: "object",
           properties: {
+            name: { type: "string" },
             url: { type: "string" },
             events: { type: "array", items: { type: "string" } },
           },
-          required: ["url", "events"],
+          required: ["name", "url", "events"],
         },
       },
     },
@@ -96,6 +226,7 @@ export function instancesRoutes(app: FastifyInstance) {
           id: string;
         };
         Body: {
+          name: string;
           url: string;
           events: string[];
         };
@@ -104,7 +235,7 @@ export function instancesRoutes(app: FastifyInstance) {
     ) => {
       const user = request.user;
       const { id } = request.params;
-      const { url, events } = request.body;
+      const { url, events, name } = request.body;
 
       const instance = await app.prisma.instance.findUnique({
         where: {
@@ -123,8 +254,9 @@ export function instancesRoutes(app: FastifyInstance) {
       const webhook = await app.prisma.webhook.create({
         data: {
           url,
+          name,
           events,
-          instanceId: id,
+          instanceId: instance.id,
         },
       });
 

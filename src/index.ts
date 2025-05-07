@@ -16,6 +16,7 @@ import { startWhatsapp } from "./whatsapp";
 import { sleep } from "./helpers/functions/sleep";
 import { publicRoutes } from "./routes/public";
 import { usersRoute } from "./routes/users";
+import { fastifySchedule } from "@fastify/schedule";
 
 dotenv.config();
 
@@ -38,6 +39,7 @@ async function closeServer() {
     },
     data: {
       connected: false,
+      status: "DISCONNECTED",
       state: "DISCONNECTED",
       disconnectedBySystem: true,
     },
@@ -78,6 +80,9 @@ app.decorate("verifyToken", verifyToken);
 app.decorate("plugins", {
   instanceAuth: instanceAuthPlugin,
 });
+
+app.decorate("sendWebhook", sendWebhook);
+app.register(fastifySchedule);
 
 app.register(authRoutes);
 app.register(instancesRoutes);

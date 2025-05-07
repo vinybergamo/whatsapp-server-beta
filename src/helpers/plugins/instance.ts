@@ -5,9 +5,21 @@ import { instances } from "../../whatsapp/instances";
 
 const CONNECTION_ROUTES = ["/instance/qrcode"];
 
-async function hook(request: FastifyRequest, reply: FastifyReply) {
-  const { instanceId } = request.query as { instanceId: string };
-  const { authorization } = request.headers as { authorization: string };
+async function hook(
+  request: FastifyRequest<{
+    Headers: {
+      authorization?: string;
+    };
+    Querystring: {
+      instanceId: string;
+      token?: string;
+    };
+  }>,
+  reply: FastifyReply
+) {
+  const { instanceId, token: tokenQuery } = request.query;
+  const { authorization } = request.headers;
+
   if (!instanceId) {
     return reply.status(400).send({ message: "Instance ID is required" });
   }
@@ -16,9 +28,11 @@ async function hook(request: FastifyRequest, reply: FastifyReply) {
     return reply.status(401).send({ message: "Authorization is required" });
   }
 
-  const [type, token] = authorization.split(" ");
+  const [type, tokenHeader] = authorization.split(" ");
 
-  if (type !== "Bearer") {
+  const token = tokenQuery || tokenHeader;
+
+  if (tokenHeader && type !== "Bearer") {
     return reply.status(401).send({ message: "Invalid authorization type" });
   }
 

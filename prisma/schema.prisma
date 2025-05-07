@@ -8,7 +8,7 @@ datasource db {
 }
 
 model User {
-  id            String     @id @default(cuid())
+  id            String     @id @default(uuid())
   name          String
   email         String     @unique
   document      String?    @unique
@@ -17,7 +17,13 @@ model User {
   avatar        String?
   password      String?
   phone         String?    @unique
+  isAdmin       Boolean    @default(false)
+  isTrial       Boolean    @default(false)
+  trialStart    DateTime?
+  trialEnd      DateTime?
   instances     Instance[]
+  Plan          Plan?      @relation(fields: [planId], references: [id])
+  planId        String?
 
   @@map("users")
 }
@@ -30,6 +36,7 @@ model Instance {
   profileStatus        String?
   name                 String?
   state                String?
+  status               String    @default("DISCONNECTED")
   contacts             Int       @default(0)
   chats                Int       @default(0)
   messagesSent         Int       @default(0)
@@ -55,7 +62,7 @@ model Instance {
 }
 
 model Webhook {
-  id         String   @id @default(cuid())
+  id         String   @id @default(uuid())
   instance   Instance @relation(fields: [instanceId], references: [id])
   instanceId String
   name       String   @default("Webhook")
@@ -66,4 +73,18 @@ model Webhook {
   updatedAt  DateTime @updatedAt
 
   @@map("webhooks")
+}
+
+model Plan {
+  id           String    @id @default(uuid())
+  name         String
+  price        Int
+  type         String    @default("MONTHLY")
+  private      Boolean   @default(false)
+  status       String    @default("ACTIVE")
+  maxInstances Int       @default(1)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+  users        User[]
 }

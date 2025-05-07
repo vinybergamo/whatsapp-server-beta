@@ -13,8 +13,10 @@ export function instanceRoutes(app: FastifyInstance) {
     if (instance) {
       const isAuthenticated = await instance.isAuthenticated();
       if (isAuthenticated) {
-        return reply.code(400).send({
+        return reply.code(200).send({
+          statusCode: "ALREADY_CONNECTED",
           message: "Whatsapp is already connected",
+          instance: request.instance,
         });
       }
 
@@ -28,13 +30,20 @@ export function instanceRoutes(app: FastifyInstance) {
     const isAuthenticated = await whatsapp.isAuthenticated();
 
     if (isAuthenticated) {
-      return reply.code(400).send({
+      return reply.code(200).send({
+        statusCode: "ALREADY_CONNECTED",
         message: "Whatsapp is already connected",
+        instance: request.instance,
       });
     }
     const qrcode = await whatsapp.getQrCode();
 
-    return reply.code(200).send(qrcode);
+    return reply.code(200).send({
+      statusCode: "QR_CODE",
+      message: "QR Code generated",
+      qrcode,
+      instance: request.instance,
+    });
   });
 
   app.post("/instance/logout", async (request, reply) => {
